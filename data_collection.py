@@ -1,7 +1,9 @@
+import pandas as pd
+import numpy as np
 import requests as req
 from bs4 import BeautifulSoup
 import re
-from datetime import datetime
+import datetime
 from marcap import marcap_data
 
 class dataCollectionCls:
@@ -29,6 +31,14 @@ class dataCollectionCls:
 
         # 특정 기간 전종목
         df = marcap_data('2023-01-01', today)  # 2015.06.15부터 상하한가폭 변경
-        print(df)
-        print(df.columns)
-        print(df.head)
+
+    def codeData(self): # 종목 코드 모두 추출
+        today = datetime.datetime.today()
+        dayago = today - datetime.timedelta(days=7)
+        df = marcap_data(dayago.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
+
+        arr_code = df.Code.unique() # <class 'numpy.ndarray'>
+        return arr_code
+
+start = dataCollectionCls()
+start.codeData()
