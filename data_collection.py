@@ -18,10 +18,4 @@ for a, b in zip(aa, bb):
     # 본문의 내용 가져오기
     res2 = req.get('https://finance.naver.com' + link, headers=headers)
     soup2 = BeautifulSoup(res2.text, 'html.parser')
-    #print(soup2.find_all(id="body"))
-    #print(soup2.select("div#body.view_se"))
-
-    comment = soup2.select_one('#body')
-    print(comment)
-
-    break
+    print(soup2.find(id="body").find_all(text=True))
