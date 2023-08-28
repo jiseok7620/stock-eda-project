@@ -17,7 +17,7 @@ for code in codes:
             driver.get(url)
             time.sleep(1)
 
-            selector = f"tr:nth-child({co_list + 1}) > td.title > a"
+            selector = f"tr:nth-child({int(co_list) + 1}) > td.title > a"
 
             
             search_button = driver.find_element(By.CSS_SELECTOR, selector)
