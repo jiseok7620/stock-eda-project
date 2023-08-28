@@ -1,8 +1,16 @@
-def print_hi(name):
-    # 스크립트를 디버그하려면 하단 코드 줄의 중단점을 사용합니다.
-    print(f'Hi, {name}')  # 중단점을 전환하려면 Ctrl+F8을(를) 누릅니다.
+import traceback
+import data_collection as dc
 
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    try:
+        # 인스턴스 생성
+        new_data = dc.dataCollectionCls()
 
-# 신기하다dddddddd
+        # 모든 종목 코드 가져오기(KOSPI, KOSDAQ)
+        codes = new_data.codeData()
+
+        # 종목토론 데이터프레임 생성
+        df = new_data.discussionData(codes)
+    except:
+        print("오류 발생")
+        print(traceback.format_exc())
