@@ -45,6 +45,9 @@ class dataCollectionCls:
                         # 데이터프레임에 행 추가
                         df.loc[len(df)] = [code, dt, title, soup2.find(id="body").find_all(text=True)]
 
+                        # 네이버 크롤링 정책 상 0.5초 sleep (본문 넘어갈 때)
+                        time.sleep(0.5)
+
                     # 네이버 크롤링 정책 상 1초 sleep (페이지 넘어갈 때)
                     time.sleep(1)
 
@@ -66,6 +69,8 @@ class dataCollectionCls:
             krx_df = fdr.StockListing('KRX')
             # marcap으로 전 종목 데이터 가져오기 (시간 형식 : %Y-%m-%d) / 2015.06.15부터 상하한가폭 변경
             df = marcap_data(stday, today)
+            df = df.loc[df["Market"] != 'KONEX']  # KONEX 제거
+            df = df.loc[df["Market"] != 'KOSPI']  # KOSPI 제거
             
             # csv로 저장
             krx_df.to_csv('./stockdata/sector.csv')
