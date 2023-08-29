@@ -6,7 +6,7 @@ if __name__ == '__main__':
         # 인스턴스 생성
         new_data = dc.dataCollectionCls()
 
-        # 모든 종목 코드 가져오기(KOSPI, KOSDAQ)
+        # 모든 종목 코드 가져오기(KOSDAQ)
         codes = new_data.codeData()
 
         # 종목토론 데이터프레임 생성

@@ -12,11 +12,14 @@ class dataCollectionCls:
     def discussionData(self, codes):
         headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'}
 
-        pages = range(1, 2) # 일단 1페이지만 가져오기
-        codes = codes[0:20] # 종목 20개만 추출(네이버 크롤링 보안정책상)
+        title_code = ''
+        pages = range(1, 10000) # 페이지 가져오기
+        codes = codes[0:2] # 종목 50개만 추출(네이버 크롤링 보안정책상)
         df = pd.DataFrame(columns=range(4))  # 빈 데이터프레임 생성
         df.columns = ['code', 'date', 'title', 'contents']  # 데이터 프레임 컬럼 지정
+        end_date = datetime.datetime.strptime('2023-07-31', '%Y-%m-%d')
         for code in tqdm(codes):
+            title_code = code
             for page in pages:
                 urls = f'https://finance.naver.com/item/board.naver?code={str(code)}&page={str(page)}'
                 res = req.get(urls, headers=headers)
@@ -37,11 +40,21 @@ class dataCollectionCls:
                     # 데이터프레임에 행 추가
                     df.loc[len(df)] = [code, dt, title, soup2.find(id="body").find_all(text=True)]
 
-                # 네이버 크롤링 정책 상 1초 sleep
+                    # 종료일 페이지를 크롤링하면 다음 페이지로 이동
+                    if end_date >= dt:
+                        break
+                    # 네이버 크롤링 정책 상 0.5초 sleep (제목 넘어갈 때)
+                    time.sleep(0.5)
+                # 종료일 페이지를 크롤링하면 다음 종목으로 이동
+                if end_date >= dt:
+                    break
+                # 네이버 크롤링 정책 상 1초 sleep (페이지 넘어갈 때)
                 time.sleep(1)
+            # 네이버 크롤링 정책 상 10초 sleep (종목코드 넘어갈 때)
+            time.sleep(10)
 
         # csv 파일로 저장
-        df.to_csv("output_pd.csv")
+        df.to_csv("output_pd"+str(title_code)+".csv")
 
     def stockData(self, stday):
         today = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -54,6 +67,7 @@ class dataCollectionCls:
         dayago = today - datetime.timedelta(days=7)
         df = marcap_data(dayago.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
         df = df.loc[df["Market"] != 'KONEX'] # KONEX 제거
+        df = df.loc[df["Market"] != 'KOSPI']  # KOSPI 제거
 
         arr_code = df.Code.unique() # <class 'numpy.ndarray'>
         return arr_code
