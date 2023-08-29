@@ -1,6 +1,5 @@
-import pandas as pd
-import numpy as np
 import requests as req
+import pandas as pd
 import re
 import datetime
 import time
@@ -56,6 +55,7 @@ class dataCollectionCls:
         df = df.loc[df["Market"] != 'KONEX'] # KONEX 제거
 
         arr_code = df.Code.unique() # <class 'numpy.ndarray'>
+        print(arr_code)
         return arr_code
 
 start = dataCollectionCls()
