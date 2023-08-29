@@ -15,7 +15,7 @@ class dataCollectionCls:
 
             title_code = ''
             pages = range(1, 10000) # 페이지 가져오기
-            codes = codes[100:201] # 종목 50개만 추출(네이버 크롤링 보안정책상)
+            codes = codes[1500:len(codes)] # 종목 50개만 추출(네이버 크롤링 보안정책상)
             df = pd.DataFrame(columns=range(4))  # 빈 데이터프레임 생성
             df.columns = ['code', 'date', 'title', 'contents']  # 데이터 프레임 컬럼 지정
             end_date = datetime.datetime.strptime('2023-07-31', '%Y-%m-%d')
@@ -34,6 +34,10 @@ class dataCollectionCls:
                         link = b['href']
                         title = b['title']
 
+                        # 종료일 페이지를 크롤링하면 다음 페이지로 이동
+                        if end_date >= dt:
+                            break
+
                         # 본문의 내용 가져오기
                         res2 = req.get('https://finance.naver.com' + link, headers=headers)
                         soup2 = BeautifulSoup(res2.text, 'html.parser')
@@ -41,14 +45,13 @@ class dataCollectionCls:
                         # 데이터프레임에 행 추가
                         df.loc[len(df)] = [code, dt, title, soup2.find(id="body").find_all(text=True)]
 
-                        # 종료일 페이지를 크롤링하면 다음 페이지로 이동
-                        if end_date >= dt:
-                            break
                     # 네이버 크롤링 정책 상 1초 sleep (페이지 넘어갈 때)
                     time.sleep(1)
+
                     # 종료일 페이지를 크롤링하면 다음 종목으로 이동
                     if end_date >= dt:
                         break
+
                 # 네이버 크롤링 정책 상 5초 sleep (종목코드 넘어갈 때)
                 time.sleep(5)
 
