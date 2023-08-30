@@ -1,4 +1,10 @@
+import pandas as pd
+import numpy as np
+
 class dataAnalysisCls:
+    def discussAnalysis(self): # 종목토론방 데이터 분석
+        pass
+
     def leadAnalysis(self): # 주도주 찾기
         pass
 
