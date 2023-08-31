@@ -12,7 +12,8 @@ class dataPreprocessingCls:
         self.indexKS11_df = pd.read_csv('./stockdata/indexKS11.csv')
         self.indexUS500_df = pd.read_csv('./stockdata/indexUS500.csv')
         self.stock_df = pd.read_csv('./stockdata/stock.csv')
-        self.daum_df = pd.read_csv('./daum/output_pd340930.csv', dtype=object)
+        self.daum_df = pd.read_csv('./daum/output.csv', dtype=object)
+
 
     def stockPreprocessing(self): # 주식 데이터 전처리
         pass
@@ -22,15 +23,17 @@ class dataPreprocessingCls:
         df = df[['Title','Contents']]
         twt = Twitter()
 
-        '''
-        for i in df['Title']:
-            tagging = twt.pos(i)
-            print(tagging)
-        '''
-
+        # 형태소 분석
+        sy = []
         for i in df['Contents']:
             tagging = twt.pos(i)
             print(tagging)
+            for i, j in tagging:
+                # '동사', '명사'만 추출
+                if j == 'Noun' or j == 'Verb':
+                    sy.append(i)
+
+
 
         #df = pd.merge(self.stock_df, self.discuss_df, how='inner', on=['Code', 'Date'])
         #print(df)

@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from wordcloud import WordCloud
 
 class dataAnalysisCls:
     def discussAnalysis(self): # 종목토론방 데이터 분석
