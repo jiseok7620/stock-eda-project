@@ -12,13 +12,13 @@ class dataPreprocessingCls:
         self.indexKS11_df = pd.read_csv('./stockdata/indexKS11.csv')
         self.indexUS500_df = pd.read_csv('./stockdata/indexUS500.csv')
         self.stock_df = pd.read_csv('./stockdata/stock.csv')
-        self.discuss_df = pd.read_csv('./output/output_pd950160.csv', dtype=object)
+        self.daum_df = pd.read_csv('./daum/output_pd340930.csv', dtype=object)
 
     def stockPreprocessing(self): # 주식 데이터 전처리
         pass
 
     def discussionPreprocessing(self): # 주식 + 종토방 데이터 전처리
-        df = self.discuss_df.copy()
+        df = self.daum_df.copy()
         df = df[['Title','Contents']]
         twt = Twitter()
 
@@ -35,7 +35,5 @@ class dataPreprocessingCls:
         #df = pd.merge(self.stock_df, self.discuss_df, how='inner', on=['Code', 'Date'])
         #print(df)
 
-'''
 st = dataPreprocessingCls()
 st.discussionPreprocessing()
-'''
