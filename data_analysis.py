@@ -1,10 +1,33 @@
 import pandas as pd
 import numpy as np
 from wordcloud import WordCloud
+import json
 
 class dataAnalysisCls:
-    def discussAnalysis(self): # 종목토론방 데이터 분석
-        pass
+    def data_list(self, wordname): # SentiWord_info의 json 사전의 긍정/부정/중립 값의 Score 가져오기
+        with open('data/SentiWord_info.json', encoding='utf-8-sig', mode='r') as f:
+            data = json.load(f)
+
+        result = 9999
+        result2 = 'None'
+        for i in range(0, len(data)):
+            if wordname in data[i]['word']:
+                result = data[i]['polarity']
+                result2 = data[i]['word']
+
+        return result, result2
+
+    def discussAnalysis(self): # 감성분석 1) 긍정, 부정, 중립 점수 매기기
+        df = pd.read_csv('test.csv')
+
+        for li in df['Verb'].astype('object'):
+            noun_list = []
+            text = li.replace('[', '').replace(']', '').replace('\'', '').replace(' ', '')
+            text_li = text.split(',')
+            for i in text_li:
+                result, result2 = self.data_list(i)
+                noun_list.append([result, i, result2])
+            print(noun_list)
 
     def leadAnalysis(self): # 주도주 찾기
         pass
@@ -31,3 +54,6 @@ class dataAnalysisCls:
         pass
 
     # 거시경제지표랑 비교 (나중..)
+
+st = dataAnalysisCls()
+st.discussAnalysis()

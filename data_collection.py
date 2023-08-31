@@ -1,4 +1,3 @@
-import bs4
 import requests as req
 import pandas as pd
 import re
@@ -11,8 +10,6 @@ from marcap import marcap_data
 from tqdm import tqdm
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 
 class dataCollectionCls:

@@ -1,9 +1,8 @@
 import pandas as pd
 import re
-import json
 import numpy as np
+from tqdm import tqdm
 from konlpy.tag import Twitter
-from wordcloud import WordCloud
 
 class dataPreprocessingCls:
     def __init__(self):
@@ -17,55 +16,43 @@ class dataPreprocessingCls:
         self.stock_df = pd.read_csv('./stockdata/stock.csv')
         self.daum_df = pd.read_csv('./daum/output.csv', dtype=object)
 
-    def data_list(self, wordname):
-        with open('data/SentiWord_info.json', encoding='utf-8-sig', mode='r') as f:
-            data = json.load(f)
-
-        result = ['None', 'None']
-        for i in range(0, len(data)):
-            if data[i]['word'] == wordname:
-                result.pop()
-                result.pop()
-                result.append(data[i]['word_root'])
-                result.append(data[i]['polarity'])
-
-        r_word = result[0]
-        s_word = result[1]
-
-        print('어근 : ' + r_word)
-        print('극성 : ' + s_word)
-
     def stockPreprocessing(self): # 주식 데이터 전처리
         pass
 
-    def discussionPreprocessing(self): # 주식 + 종토방 데이터 전처리
-        df = self.daum_df.copy()
-        df = df[['Title','Contents']]
+    def discussionPreprocessing(self): # 종토방 데이터 전처리
+        df = self.daum_df
 
-        '''
-        # 형태소 분석
+        for i in range(len(df)):
+            # 모든 특수문자, 띄어쓰기
+            df.iloc[i]['Title'] = re.sub(r'[^\w가-힣]', '', df.iloc[i]['Title'])
+            df.iloc[i]['Contents'] = re.sub(r'[^\w가-힣]', '', df.iloc[i]['Contents'])
+
+        new_df = pd.DataFrame(columns=['Code', 'Date', 'Noun', 'Adjective', 'Verb'])
         twt = Twitter()
-        sy = []
-        for i in df['Contents']:
-            tagging = twt.pos(i)
-            for i, j in tagging:
-                # '동사', '명사'만 추출
-                if j == 'Noun' or j == 'Verb':
-                    sy.append(i)
-        print(sy)
-        '''
+        for j in tqdm(range(len(df))):
+            tag_a = twt.pos(df.iloc[j]['Title'])
+            tag_b = twt.pos(df.iloc[j]['Contents'])
+            list_noun = []
+            list_ad = []
+            list_vb = []
+            for a, b in tag_a:
+                if b == 'Noun':
+                     list_noun.append(a)
+                elif b == 'Adjective':
+                     list_ad.append(a)
+                elif b == 'Verb':
+                     list_vb.append(a)
+            for a, b in tag_b:
+                if b == 'Noun':
+                    list_noun.append(a)
+                elif b == 'Adjective':
+                    list_ad.append(a)
+                elif b == 'Verb':
+                    list_noun.append(a)
+            new_df.loc[len(new_df)] = [df.iloc[j]['Code'], df.iloc[j]['Date'], list_noun, list_ad, list_vb]
 
-        # 문자열 분석
-        for content in df['Contents']:
-            # '%'를 제외한 모든 특수문자를 제거
-            result = re.sub(r'[^\w\s%]', '', content)
-            # 영어 알파벳을 제거
-            result = re.sub(r'[a-zA-Z]', '', result)
-            print(result)
+        new_df.to_csv('test.csv')
+        return new_df
 
-        #df = pd.merge(self.stock_df, self.discuss_df, how='inner', on=['Code', 'Date'])
-        #print(df)
-
-st = dataPreprocessingCls()
+#st = dataPreprocessingCls()
 #st.discussionPreprocessing()
-st.data_list('가년스럽다')

@@ -10,8 +10,8 @@ def exe_main(data_collect):
 
     # 1. 데이터 수집(data_clloect가 True인 데이터 만 수집됨)
     #new_data.discussionData(data_collect, new_data.codeData(), '2023-07-31') # 종목토론방 데이터 수집
-    new_data.discussionNaverData(data_collect, new_data.codeData()[1000:1002], '2023-07-31') # 네이버 종목토론방 데이터 수집
-    new_data.discussionDaumData(True, new_data.codeData()[500:1000], '2023-07-31')  # 다음 종목토론방 데이터 수집
+    new_data.discussionNaverData(True, new_data.codeData()[1000:1002], '2023-07-31') # 네이버 종목토론방 데이터 수집
+    new_data.discussionDaumData(data_collect, new_data.codeData()[500:1000], '2023-07-31')  # 다음 종목토론방 데이터 수집
     new_data.stockData(data_collect, '2022-01-01') # 주식 데이터 수집 (2022-01-01~현재)
     new_data.indexData(data_collect, 'KS11') # 코스피 지수 데이터 수집
     new_data.indexData(data_collect, 'KQ11') # 코스닥 지수 데이터 수집
