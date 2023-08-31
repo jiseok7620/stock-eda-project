@@ -89,63 +89,68 @@ class dataCollectionCls:
                 # chrome driver
                 driver = webdriver.Chrome(options=options)
                 driver.get(f'https://finance.naver.com/item/board.naver?code={code}')
-                driver.implicitly_wait(3)
+                driver.implicitly_wait(5)
 
                 page = 0 # 페이지 카운트
                 turn = 0 # 페이지 카운트 시 11번째 이후부터는 '맨앞', '이전'이 생기므로 이를 구분하기 위함
                 rep = True # 반복 True
                 while rep:
-                    page += 1
-
-                    # 페이지로 이동
-                    test = driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page)+")")
-                    driver.implicitly_wait(3)
-
-                    # 2번째 페이지 부터 앞에 '맨앞'이 생기므로 page+1을 해줌
-                    if turn == 1:
+                    try:
                         page += 1
 
-                    # 11번째 페이지 부터 앞에 '맨앞'과 '이전'이 생기므로 page+1을 해줌
-                    if test.text == '맨앞' or test.text == '이전':
-                        page += 1
-                    else :
-                        test.click()
+                        # 페이지로 이동
+                        test = driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page)+")")
+                        driver.implicitly_wait(5)
 
-                        # 시간, 제목 크롤링
-                        dates = driver.find_elements(By.CSS_SELECTOR, "tr[onmouseover='mouseOver(this)'] td:nth-child(1) span")
-                        titles = driver.find_elements(By.CSS_SELECTOR, "td[class='title'] a")
-                        for date, title in zip(dates, titles):
-                            dt = datetime.datetime.strptime(date.text.split(' ')[0].replace('.', '-'), '%Y-%m-%d')
-                            ti = title.text
+                        # 2번째 페이지 부터 앞에 '맨앞'이 생기므로 page+1을 해줌
+                        if turn == 1:
+                            page += 1
 
-                            # 종료 조건
-                            if end_date >= dt:
-                                rep = False
-                                break
+                        # 11번째 페이지 부터 앞에 '맨앞'과 '이전'이 생기므로 page+1을 해줌
+                        if test.text == '맨앞' or test.text == '이전':
+                            page += 1
+                        else :
+                            test.click()
 
-                            # 본문의 내용 가져오기
-                            res = req.get(title.get_attribute('href'), headers=headers)
-                            soup = BeautifulSoup(res.text, 'html.parser')
-                            content = soup.find(id="body").find_all(text=True)
+                            # 시간, 제목 크롤링
+                            dates = driver.find_elements(By.CSS_SELECTOR, "tr[onmouseover='mouseOver(this)'] td:nth-child(1) span")
+                            titles = driver.find_elements(By.CSS_SELECTOR, "td[class='title'] a")
+                            for date, title in zip(dates, titles):
+                                dt = datetime.datetime.strptime(date.text.split(' ')[0].replace('.', '-'), '%Y-%m-%d')
+                                ti = title.text
 
-                            # 데이터프레임에 행 추가
-                            df.loc[len(df)] = [code, dt, ti, content]
+                                # 종료 조건
+                                if end_date >= dt:
+                                    rep = False
+                                    break
 
-                            # 크롤링 정책 상 0.2초 sleep (본문 넘어갈 때)
-                            time.sleep(0.2)
+                                # 본문의 내용 가져오기
+                                res = req.get(title.get_attribute('href'), headers=headers)
+                                soup = BeautifulSoup(res.text, 'html.parser')
+                                content = soup.find(id="body").find_all(text=True)
 
-                    # turn + 1
-                    turn += 1
+                                # 데이터프레임에 행 추가
+                                df.loc[len(df)] = [code, dt, ti, content]
 
-                    # turn이 10은 첫 번째 턴(맨앞 버튼만), 이후는 맨앞, 이전 버튼
-                    if turn == 10:
-                        if page == 11 :
-                            driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
-                            page = 0
-                    else:
-                        if page == 12 :
-                            driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
-                            page = 0
+                                # 크롤링 정책 상 0.2초 sleep (본문 넘어갈 때)
+                                time.sleep(0.2)
+
+                        # turn + 1
+                        turn += 1
+
+                        # turn이 10은 첫 번째 턴(맨앞 버튼만), 이후는 맨앞, 이전 버튼
+                        if turn == 10:
+                            if page == 11 :
+                                driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
+                                page = 0
+                        else:
+                            if page == 12 :
+                                driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
+                                page = 0
+
+                    except Exception as e:
+                        print("에러", "코드 :", str(code), "에러메세지 :", e)
+                        break
 
                 # driver 해제
                 driver.quit()
@@ -159,7 +164,7 @@ class dataCollectionCls:
     def discussionDaumData(self, csv_save, codes, end_date): # 다음 크롤링
         if csv_save:
             title_code = ''
-            pages = range(1, 100)  # 페이지 가져오기
+            pages = range(1, 10000)  # 페이지 가져오기
             df = pd.DataFrame(columns=range(7))  # 빈 데이터프레임 생성
             df.columns = ['Code', 'Date', 'Title', 'Contents', 'Readcnt', 'Agreecnt', 'Disagreecnt']  # 데이터 프레임 컬럼 지정
             end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
@@ -178,7 +183,7 @@ class dataCollectionCls:
 
                     # 가져오는 기사 개수가 30개 이하이면 다음 종목으로 넘어가기
                     if json_data['totalCount'] <= 30 :
-                        continue
+                        break
 
                     for js in json_data['data']['posts']:
                         createdt = datetime.datetime.strptime(js['createdAt'].split(' ')[0], '%Y-%m-%d')
