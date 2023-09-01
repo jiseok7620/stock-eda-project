@@ -4,12 +4,15 @@ import re
 import datetime
 import time
 import FinanceDataReader as fdr
+import traceback
 from io import BytesIO
 from bs4 import BeautifulSoup
 from marcap import marcap_data
 from tqdm import tqdm
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class dataCollectionCls:
@@ -40,7 +43,7 @@ class dataCollectionCls:
                         print(code, page, dt)
 
                         # 종료일 페이지를 크롤링하면 다음 페이지로 이동
-                        if end_date >= dt:
+                        if end_date > dt:
                             break
 
                         # 본문의 내용 가져오기
@@ -57,7 +60,7 @@ class dataCollectionCls:
                     time.sleep(1)
 
                     # 종료일 페이지를 크롤링하면 다음 종목으로 이동
-                    if end_date >= dt:
+                    if end_date > dt:
                         break
 
                 # 네이버 크롤링 정책 상 5초 sleep (종목코드 넘어갈 때)
@@ -66,10 +69,11 @@ class dataCollectionCls:
             # csv 파일로 저장
             df.to_csv("./output/output_pd"+str(title_code)+".csv")
 
-    def discussionNaverData(self, csv_save, codes, end_date): # 네이버 셀레니움 크롤링
+    def discussionNaverData(self, csv_save, codes, start_date, end_date): # 네이버 셀레니움 크롤링
         if csv_save:
             title_code = ''
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'}
+            start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
             end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
             df = pd.DataFrame(columns=range(4))  # 빈 데이터프레임 생성
             df.columns = ['Code', 'Date', 'Title', 'Contents']  # 데이터 프레임 컬럼 지정
@@ -86,7 +90,7 @@ class dataCollectionCls:
                 # chrome driver
                 driver = webdriver.Chrome(options=options)
                 driver.get(f'https://finance.naver.com/item/board.naver?code={code}')
-                driver.implicitly_wait(5)
+                driver.implicitly_wait(20)
 
                 page = 0 # 페이지 카운트
                 turn = 0 # 페이지 카운트 시 11번째 이후부터는 '맨앞', '이전'이 생기므로 이를 구분하기 위함
@@ -96,8 +100,8 @@ class dataCollectionCls:
                         page += 1
 
                         # 페이지로 이동
-                        test = driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page)+")")
-                        driver.implicitly_wait(5)
+                        test = WebDriverWait(driver, 20).until(EC.presence_of_element_located(
+                            (By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page)+")")))
 
                         # 2번째 페이지 부터 앞에 '맨앞'이 생기므로 page+1을 해줌
                         if turn == 1:
@@ -110,14 +114,21 @@ class dataCollectionCls:
                             test.click()
 
                             # 시간, 제목 크롤링
-                            dates = driver.find_elements(By.CSS_SELECTOR, "tr[onmouseover='mouseOver(this)'] td:nth-child(1) span")
-                            titles = driver.find_elements(By.CSS_SELECTOR, "td[class='title'] a")
+                            dates = WebDriverWait(driver, 20).until(EC.presence_of_all_elements_located(
+                                (By.CSS_SELECTOR, "tr[onmouseover='mouseOver(this)'] td:nth-child(1) span")))
+                            titles = WebDriverWait(driver, 20).until(EC.presence_of_all_elements_located(
+                                (By.CSS_SELECTOR, "td[class='title'] a")))
                             for date, title in zip(dates, titles):
                                 dt = datetime.datetime.strptime(date.text.split(' ')[0].replace('.', '-'), '%Y-%m-%d')
                                 ti = title.text
+                                print(code, dt, ti)
+                                
+                                # 시작일 조건
+                                if start_date < dt:
+                                    break
 
                                 # 종료 조건
-                                if end_date >= dt:
+                                if end_date > dt:
                                     rep = False
                                     break
 
@@ -138,15 +149,18 @@ class dataCollectionCls:
                         # turn이 10은 첫 번째 턴(맨앞 버튼만), 이후는 맨앞, 이전 버튼
                         if turn == 10:
                             if page == 11 :
-                                driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
+                                WebDriverWait(driver, 20).until(EC.presence_of_element_located(
+                                    (By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")"))).click() # 다음 클릭
                                 page = 0
                         else:
                             if page == 12 :
-                                driver.find_element(By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")").click() # 다음 클릭
+                                WebDriverWait(driver, 20).until(EC.presence_of_element_located(
+                                    (By.CSS_SELECTOR, "table[class='Nnavi'] tbody tr td:nth-child("+str(page+1)+")"))).click()  # 다음 클릭
                                 page = 0
 
                     except Exception as e:
                         print("에러", "코드 :", str(code), "에러메세지 :", e)
+                        print(traceback.format_exc())
                         break
 
                 # driver 해제
@@ -158,12 +172,13 @@ class dataCollectionCls:
             # csv 파일로 저장
             df.to_csv("./naver/output_pd" + str(title_code) + ".csv")
 
-    def discussionDaumData(self, csv_save, codes, end_date): # 다음 크롤링
+    def discussionDaumData(self, csv_save, codes, start_date, end_date): # 다음 크롤링
         if csv_save:
             title_code = ''
             pages = range(1, 10000)  # 페이지 가져오기
             df = pd.DataFrame(columns=range(7))  # 빈 데이터프레임 생성
             df.columns = ['Code', 'Date', 'Title', 'Contents', 'Readcnt', 'Agreecnt', 'Disagreecnt']  # 데이터 프레임 컬럼 지정
+            start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
             end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
             for code in tqdm(codes):
                 title_code = code
@@ -191,8 +206,12 @@ class dataCollectionCls:
                         disagreecnt = js['disagreeCount']
                         #print(code, end_date, createdt, title)
 
+                        # 시작일 조건
+                        if start_date < createdt:
+                            break
+
                         # 종료일 페이지를 크롤링하면 다음 페이지로 이동
-                        if end_date >= createdt:
+                        if end_date > createdt:
                             break
 
                         # 데이터프레임에 행 추가
@@ -202,7 +221,7 @@ class dataCollectionCls:
                     time.sleep(1)
 
                     # 종료일 페이지를 크롤링하면 다음 종목으로 이동
-                    if end_date >= createdt:
+                    if end_date > createdt:
                         break
 
                 # 크롤링 정책 상 3초 sleep (종목 넘어갈 때)
