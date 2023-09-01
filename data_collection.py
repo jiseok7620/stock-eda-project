@@ -15,61 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
 class dataCollectionCls:
-    def discussionData(self, csv_save, codes, end_date): # 네이버 bf 크롤링 - request 문제 발생(100page 이후 크롤링 불가능)
-        if csv_save:
-            headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36'}
-
-            title_code = ''
-            pages = range(1, 3) # 페이지 가져오기
-            codes = codes[1001:1005] # 종목 추출(네이버 크롤링 보안정책상)
-            df = pd.DataFrame(columns=range(4))  # 빈 데이터프레임 생성
-            df.columns = ['Code', 'Date', 'Title', 'Contents']  # 데이터 프레임 컬럼 지정
-            end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
-            for code in tqdm(codes):
-                title_code = code
-                for page in pages:
-                    urls = f'https://finance.naver.com/item/board.naver?code={str(code)}&page={str(page)}'
-                    res = req.get(urls, headers=headers)
-                    soup = BeautifulSoup(res.text, 'html.parser')
-
-                    aa = soup.select("tr[onmouseover='mouseOver(this)'] td:nth-child(1) span") # 시간을 가져오기 위함
-                    bb = soup.find_all(href=re.compile("/item/board_read.naver")) # 제목을 가져옴
-
-                    for a, b in zip(aa, bb):
-                        dt = datetime.datetime.strptime(a.contents[0].split(' ')[0].replace('.','-'), '%Y-%m-%d')
-                        link = b['href']
-                        title = b['title']
-                        print(code, page, dt)
-
-                        # 종료일 페이지를 크롤링하면 다음 페이지로 이동
-                        if end_date > dt:
-                            break
-
-                        # 본문의 내용 가져오기
-                        res2 = req.get('https://finance.naver.com' + link, headers=headers)
-                        soup2 = BeautifulSoup(res2.text, 'html.parser')
-
-                        # 데이터프레임에 행 추가
-                        df.loc[len(df)] = [code, dt, title, soup2.find(id="body").find_all(text=True)]
-
-                        # 네이버 크롤링 정책 상 0.5초 sleep (본문 넘어갈 때)
-                        time.sleep(0.5)
-
-                    # 네이버 크롤링 정책 상 1초 sleep (페이지 넘어갈 때)
-                    time.sleep(1)
-
-                    # 종료일 페이지를 크롤링하면 다음 종목으로 이동
-                    if end_date > dt:
-                        break
-
-                # 네이버 크롤링 정책 상 5초 sleep (종목코드 넘어갈 때)
-                time.sleep(5)
-
-            # csv 파일로 저장
-            df.to_csv("./output/output_pd"+str(title_code)+".csv")
-
     def discussionNaverData(self, csv_save, codes, start_date, end_date): # 네이버 셀레니움 크롤링
         if csv_save:
             title_code = ''
@@ -82,7 +28,7 @@ class dataCollectionCls:
                 title_code = code
                 # headless 설정
                 options = webdriver.ChromeOptions()
-                #options.add_argument('headless')
+                options.add_argument('headless')
                 options.add_argument("no-sandbox")
                 options.add_argument('window-size=1920x1080')
                 options.add_argument("disable-gpu")
@@ -106,15 +52,15 @@ class dataCollectionCls:
                 driver.get(f'https://finance.naver.com/item/coinfo.naver?code={code}')
                 driver.implicitly_wait(20)
 
+                # 종목토론으로 이동 (페이지 요청 찾을 수 없음 -> 해결)
+                WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tab7"))).click()
+
                 page = 0 # 페이지 카운트
                 turn = 0 # 페이지 카운트 시 11번째 이후부터는 '맨앞', '이전'이 생기므로 이를 구분하기 위함
                 rep = True # 반복 True
                 while rep:
                     try:
                         page += 1
-
-                        # 종목토론으로 이동 (페이지 요청 찾을 수 없음 -> 해결)
-                        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tab7"))).click()
 
                         # 페이지로 이동
                         test = WebDriverWait(driver, 20).until(EC.presence_of_element_located(
@@ -187,7 +133,7 @@ class dataCollectionCls:
                 time.sleep(3)
 
             # csv 파일로 저장
-            df.to_csv("./naver/output_pd" + str(title_code) + ".csv")
+            df.to_csv("./datacollect/naver/output_pd" + str(title_code) + ".csv")
 
     def discussionDaumData(self, csv_save, codes, start_date, end_date): # 다음 크롤링
         if csv_save:
@@ -260,7 +206,7 @@ class dataCollectionCls:
             
             # csv로 저장
             krx_df.to_csv('./stockdata/sector.csv')
-            df.to_csv('./stockdata/stock.csv')
+            df.to_csv('./datacollect/stockdata/stock.csv')
 
     def codeData(self): # 종목 코드 모두 추출
         today = datetime.datetime.today()
@@ -280,7 +226,7 @@ class dataCollectionCls:
         '''
         if csv_save:
             df = fdr.DataReader(index, year) # KS11 (KOSPI 지수), 2015년~현재
-            df.to_csv('./stockdata/index'+str(index)+'.csv')
+            df.to_csv('./datacollect/stockdata/index'+str(index)+'.csv')
 
     def coinData(self, csv_save, coin='BTC/KRW', year='2022'):
         '''
@@ -289,7 +235,7 @@ class dataCollectionCls:
         '''
         if csv_save:
             df = fdr.DataReader(coin, year) # 비트코인 가격
-            df.to_csv('./stockdata/coin.csv')
+            df.to_csv('./datacollect/stockdata/coin.csv')
 
     def exchangeRateData(self, csv_save, exchange='USD/KRW', year='2022'):
         '''
@@ -298,28 +244,4 @@ class dataCollectionCls:
         '''
         if csv_save:
             df = fdr.DataReader(exchange, year) # 원달러 환율
-            df.to_csv('./stockdata/exchange.csv')
-
-    def listingData(self):
-        gen_req_url = 'http://data.krx.co.kr/comm/fileDn/GenerateOTP/generate.cmd'
-        query_str_parms = {
-            'mktId': 'ALL',
-            'share': '1',
-            'csvxls_isNo': 'false',
-            'name': 'fileDown',
-            'url': 'dbms/MDC/STAT/standard/MDCSTAT01901'
-        }
-        headers = {
-            'Referer': 'http://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0302_DB',
-            'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36'
-            # generate.cmd에서 찾아서 입력하세요
-        }
-        res1 = req.get(gen_req_url, query_str_parms, headers=headers)
-        gen_req_url = 'http://data.krx.co.kr/comm/fileDn/download_excel/download.cmd'
-        form_data = {
-            'code': res1.content
-        }
-        res2 = req.post(gen_req_url, form_data, headers=headers)
-        csv_file = BytesIO(res2.content)
-        df = pd.read_csv(csv_file, encoding='euc-kr')
+            df.to_csv('./datacollect/stockdata/exchange.csv')

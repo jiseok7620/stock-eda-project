@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 import json
+from wordcloud import WordCloud
 
 class dataAnalysisCls:
     def data_list(self, wordname): # SentiWord_info의 json 사전의 긍정/부정/중립 값의 Score 가져오기
@@ -17,9 +18,7 @@ class dataAnalysisCls:
 
         return result, result2
 
-    def discussAnalysis(self): # 감성분석 1) 긍정, 부정, 중립 점수 매기기
-        df = pd.read_csv('test.csv')
-
+    def discussAnalysis(self, df): # 감성분석 1) 긍정, 부정, 중립 점수 매기기
         for li in df['Verb'].astype('object'):
             noun_list = []
             text = li.replace('[', '').replace(']', '').replace('\'', '').replace(' ', '')
@@ -29,8 +28,23 @@ class dataAnalysisCls:
                 noun_list.append([result, i, result2])
             print(noun_list)
 
-    def commentsAnalysis(self): # 댓글 수와 주가의 상관관계
-        pass
+    def commentsAnalysis(self, new_df): # 토론방 게시글 수와 주가의 관계 분석
+        # 정규화 수행
+        normalized_df = (new_df - new_df.min()) / (new_df.max() - new_df.min())
+
+        # line 차트 그리기
+        plt.figure(figsize=[16, 8])
+        plt.subplot(2, 1, 1)
+        plt.plot(normalized_df['Num'], label='Num')
+        plt.plot(normalized_df['High'], label='Close')
+        plt.legend()
+
+        # bar 차트 그리기
+        plt.subplot(2, 1, 2)
+        plt.bar(new_df.index, new_df['Volume'])
+
+        # 차트 보여주기
+        plt.show()
 
 
     def leadAnalysis(self): # 주도주 찾기
@@ -58,6 +72,3 @@ class dataAnalysisCls:
         pass
 
     # 거시경제지표랑 비교 (나중..)
-
-st = dataAnalysisCls()
-st.discussAnalysis()
