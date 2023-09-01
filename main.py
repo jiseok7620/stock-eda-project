@@ -1,5 +1,4 @@
 import traceback
-import pandas as pd
 import data_collection as dc
 
 def exe_main(data_collect):
@@ -8,7 +7,7 @@ def exe_main(data_collect):
 
     # 1. 데이터 수집(data_clloect가 True인 데이터 만 수집됨)
     #new_data.discussionData(data_collect, new_data.codeData(), '2023-08-01') # 종목토론방 데이터 수집
-    new_data.discussionNaverData(True, new_data.codeData()[0:1], '2023-08-31', '2023-08-01') # 네이버 종목토론방 데이터 수집
+    new_data.discussionNaverData(True, new_data.codeData()[283:285], '2023-08-31', '2023-08-01') # 네이버 종목토론방 데이터 수집 # 285~299까지
     new_data.discussionDaumData(data_collect, new_data.codeData()[500:1000], '2023-08-31', '2023-08-01')  # 다음 종목토론방 데이터 수집
     new_data.stockData(data_collect, '2022-01-01') # 주식 데이터 수집 (2022-01-01~현재)
     new_data.indexData(data_collect, 'KS11') # 코스피 지수 데이터 수집

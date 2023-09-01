@@ -5,6 +5,7 @@ import datetime
 import time
 import FinanceDataReader as fdr
 import traceback
+from selenium_stealth import stealth
 from io import BytesIO
 from bs4 import BeautifulSoup
 from marcap import marcap_data
@@ -81,15 +82,28 @@ class dataCollectionCls:
                 title_code = code
                 # headless 설정
                 options = webdriver.ChromeOptions()
-                options.add_argument('headless')
+                #options.add_argument('headless')
                 options.add_argument("no-sandbox")
                 options.add_argument('window-size=1920x1080')
                 options.add_argument("disable-gpu")
-                options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36")
+                options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92 Safari/537.36")
 
                 # chrome driver
                 driver = webdriver.Chrome(options=options)
-                driver.get(f'https://finance.naver.com/item/board.naver?code={code}')
+
+                # stealth
+                stealth(driver,
+                        languages=["en-US", "en"],
+                        vendor="Google Inc.",
+                        platform="Win32",
+                        webgl_vendor="Intel Inc.",
+                        renderer="Intel Iris OpenGL Engine",
+                        fix_hairline=True,
+                        )
+
+                # request
+                # driver.get(f'https://finance.naver.com/item/board.naver?code={code}') # 페이지를 찾을 수 없습니다.
+                driver.get(f'https://finance.naver.com/item/coinfo.naver?code={code}')
                 driver.implicitly_wait(20)
 
                 page = 0 # 페이지 카운트
@@ -98,6 +112,9 @@ class dataCollectionCls:
                 while rep:
                     try:
                         page += 1
+
+                        # 종목토론으로 이동 (페이지 요청 찾을 수 없음 -> 해결)
+                        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tab7"))).click()
 
                         # 페이지로 이동
                         test = WebDriverWait(driver, 20).until(EC.presence_of_element_located(
@@ -233,7 +250,6 @@ class dataCollectionCls:
     def stockData(self, csv_save, stday): # 주식 데이터 가져오기
         if csv_save:
             today = datetime.datetime.today().strftime('%Y-%m-%d')
-    
             # fdr로 전체 종목 가져오기 (섹터 데이터)
             krx_df = fdr.StockListing('KRX')
             # marcap으로 전 종목 데이터 가져오기 (시간 형식 : %Y-%m-%d) / 2015.06.15부터 상하한가폭 변경

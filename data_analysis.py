@@ -29,6 +29,10 @@ class dataAnalysisCls:
                 noun_list.append([result, i, result2])
             print(noun_list)
 
+    def commentsAnalysis(self): # 댓글 수와 주가의 상관관계
+        pass
+
+
     def leadAnalysis(self): # 주도주 찾기
         pass
 
