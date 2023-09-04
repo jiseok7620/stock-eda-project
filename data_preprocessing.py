@@ -13,6 +13,7 @@ class dataPreprocessingCls:
         self.indexKQ11_df = pd.read_csv('datacollect/stockdata/indexKQ11.csv')
         self.indexKS11_df = pd.read_csv('datacollect/stockdata/indexKS11.csv')
         self.indexUS500_df = pd.read_csv('datacollect/stockdata/indexUS500.csv')
+        self.theme_df = pd.read_csv('datacollect/stockdata/theme_list.csv')
         self.stock_df = pd.read_csv('datacollect/stockdata/stock.csv')
         self.daum_df = pd.read_csv('datacollect/daum/output.csv', dtype=object)
         self.naver_df = pd.read_csv('datacollect/naver/output_pd327260.csv', dtype=object)
@@ -79,3 +80,38 @@ class dataPreprocessingCls:
 
             # csv로 저장
             new_df.to_csv('./datapreprocess/morpheme.csv')
+
+    def getStocksByTheme(self, theme_name_input): # 테마에 속한 종목들
+        theme_list = self.theme_df
+        theme_list = theme_list.iloc[:, 1:]
+        for theme_name, stock_list in zip(theme_list.Theme, theme_list.Name):
+            if theme_name == theme_name_input:
+                return stock_list
+        return None
+
+    def getThemesByStock(self, stock_name_input): # 종목이 속한 테마들
+        theme_list = self.theme_df
+        theme_list = theme_list.iloc[:, 1:]
+        themes = []
+        for theme_name, stock_list in zip(theme_list.Theme, theme_list.Name):
+            if stock_name_input in stock_list:
+                themes.append(theme_name)
+        return themes
+
+    def getThemeData(self, csv_save, df): # 테마열 추가하기
+        if csv_save:
+            result_df = df
+            result_df['Theme'] = ''
+            for index, name_input in df.iterrows():
+                themes = self.getThemesByStock(name_input.Name)
+                theme_list = []
+
+                if len(themes) == 0:
+                    continue
+                else:
+                    for theme_name in themes:
+                        theme_list.append(theme_name)
+                result_df.at[index, 'Theme'] = theme_list # 리스트를 특정 요소에 할당하기
+
+            # csv로 저장
+            result_df.to_csv('./datapreprocess/stocktheme.csv')

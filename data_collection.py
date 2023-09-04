@@ -208,16 +208,19 @@ class dataCollectionCls:
             krx_df.to_csv('./stockdata/sector.csv')
             df.to_csv('./datacollect/stockdata/stock.csv')
 
-    def codeData(self): # 종목 코드 모두 추출
+    def codeData(self): # 종목 코드, 종목명 모두 추출
         today = datetime.datetime.today()
         dayago = today - datetime.timedelta(days=7)
         df = marcap_data(dayago.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d'))
         df = df.loc[df["Market"] != 'KONEX'] # KONEX 제거
         df = df.loc[df["Market"] != 'KOSPI'] # KOSPI 제거
         df = df.loc[~df.Name.str.contains('([0-9]호)')] # 스팩주 제거
-
-        arr_code = df.Code.unique() # <class 'numpy.ndarray'>
-        return arr_code
+        
+        df_code = df[['Code','Name']]
+        df_code = df_code.drop_duplicates()
+        df_code = df_code.reset_index()
+        df_code = df_code.drop('Date', axis=1)
+        return df_code
 
     def indexData(self, csv_save, index='KS11', year='2022'):
         '''
@@ -245,3 +248,36 @@ class dataCollectionCls:
         if csv_save:
             df = fdr.DataReader(exchange, year) # 원달러 환율
             df.to_csv('./datacollect/stockdata/exchange.csv')
+
+    def themeData(self, csv_save):
+        if csv_save:
+            url = 'https://finance.naver.com/sise/theme.nhn'
+            res = req.get(url)
+            soup = BeautifulSoup(res.content, 'html.parser')
+            total_pages = int(soup.select_one('.pgRR a')['href'].split('=')[-1])
+
+            theme_list = []
+            for page in range(1, total_pages + 1):
+                url = f'https://finance.naver.com/sise/theme.nhn?&page={page}'
+                res = req.get(url)
+                soup = BeautifulSoup(res.content, 'html.parser')
+                themes = soup.select('.type_1 .col_type1 a')
+
+                for theme in themes:
+                    theme_name = theme.text.strip()
+                    theme_url = 'https://finance.naver.com' + theme['href']
+                    theme_res = req.get(theme_url)
+                    theme_soup = BeautifulSoup(theme_res.content, 'html.parser')
+                    stocks = theme_soup.select('.type_5 tbody tr')
+                    stock_list = []
+                    for stock in stocks:
+                        try:
+                            stock_name = stock.select_one('a').text.strip()
+                            stock_list.append(stock_name)
+                        except:
+                            pass
+                    theme_list.append((theme_name, stock_list))
+
+            # 테마 리스트를 데이터 프레임으로 변환
+            df_theme = pd.DataFrame(theme_list, columns=['Theme', 'Name'])
+            df_theme.to_csv('datacollect/stockdata/theme_list.csv')
