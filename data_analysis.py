@@ -132,10 +132,14 @@ class dataAnalysisCls:
         result_df = pd.DataFrame(columns=['Code','A','B'])
         for i in outlier_df['Code']:
             graph_df = df[df['Code'] == i]
+            rate = [round(((a - b) / b) * 100, 2) for a, b in zip(graph_df.Close[1:len(graph_df) - 1], graph_df.Close[0:len(graph_df)])]
+            print(graph_df)
+            print(rate)
+
             vol_mean = graph_df.Volume.mean()
             stock_mean = graph_df.Close.mean()
             result_df.loc[len(result_df)] = [i, vol_mean, stock_mean]
-
+            return
         # Add a column: the color depends on x and y values, but you can use any function you want
         # value = (df['x'] > 0.2) & (df['y'] > 0.4)
         # df['color'] = np.where(value == True, "#9b59b6", "#3498db")
