@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from mplfinance.original_flavor import candlestick2_ohlc
+import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import json
 import seaborn as sns
@@ -52,30 +54,135 @@ class dataAnalysisCls:
             noun_list.append([result, text[0:10], result2])
             print(noun_list)
 
-    def commentsAnalysis(self, df): # 토론방 게시글 수와 주가의 관계 분석 (new_df : discussionnum)
-        # 정규화 수행
-        df[['Num', 'Close']] = (df[['Num', 'Close']] - df[['Num', 'Close']].min()) / (df[['Num', 'Close']].max() - df[['Num', 'Close']].min()) # Num, Close
+    def outlierAnalysis(self): # 게시글 수의 아웃라이어 분석
+        df = self.num_df
 
-        for i in df['Code'].unique():
+        # 종목 코드 별로 그룹화하여 게시글 수의 합 구하기
+        gr = df.groupby('Code').sum()
+        ne = gr['Num']
+
+        # 2. outlier 리스트 뽑기
+        q1 = ne.quantile(0.25)
+        q3 = ne.quantile(0.75)
+        iqr = q3 - q1
+        outliers = ne[ne > q3 + 1.5 * iqr]
+        outliers = outliers.reset_index()  # 0~ 인덱스 중복을 초기화
+        outliers = outliers.astype({'Code': 'str'})
+        outliers.Code = outliers['Code'].apply(
+            lambda x: x.zfill(6))  # outliers.Code = outliers['Code'].apply(lambda x: str(0) + x if len(x) <= 5 else x)
+
+        return outliers
+
+    def commentsAnalysis(self, outlier_df): # 토론방 게시글 수와 주가의 관계 분석 (num_df : discussionnum)
+        df = self.num_df
+        df['Code'] = df['Code'].astype(str)  # Code 열을 str로 타입 변환
+        df.Code = df['Code'].apply(lambda x: x.zfill(6))  # Code 열의 앞을 0으로 채우기
+
+        # 상관계수가 높은 종목들 추출
+        corr_df = pd.DataFrame(columns=['Code', 'Corr'])
+        for i in outlier_df['Code'].unique():
             graph_df = df[df['Code'] == i]
+            corr_val = graph_df['Num'].corr(df['Close'])
+            corr_df.loc[len(corr_df)] = [str(i).zfill(6), corr_val]
+        corr_df = corr_df.sort_values(by=['Corr'], ascending=False)
+        corr_df = corr_df.reset_index(drop=True)
 
-            # line 차트 그리기
-            plt.figure(figsize=[16, 8])
-            plt.subplot(2, 1, 1)
-            plt.plot(graph_df['Date'], graph_df['Num'], 'bo', label='Num', linestyle='--', marker='*')
-            plt.plot(graph_df['Date'], graph_df['Close'], 'bo', label='Close', linestyle='-', color='red')
-            plt.legend()
+        return corr_df
 
-            # bar 차트 그리기
-            plt.subplot(2, 1, 2)
-            plt.bar(graph_df['Date'], graph_df['Volume'])
+    def commentsGraph(self, corr_df):
+        df = self.num_df
 
-            # 차트 보여주기
+        # 상관계수가 높은 상위 5개 종목을 그래프로 표현하기
+        for i in corr_df.loc[0:4, 'Code']:
+            graph_df = df[df['Code'] == i]
+            graph_df = graph_df.reset_index(drop=True)  # 인덱스 리셋하기
+
+            # 차트 설정
+            plt.figure(figsize=(16, 8))
+            plt.rc('font', family='NanumGothic')  # 그래프 한글 깨짐 방지
+            gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=[3, 1])
+
+            # 트위차트(1) - 봉 차트
+            ax = plt.subplot(gs[0])
+            ax.set_ylabel('주가', color='black')
+            candlestick2_ohlc(ax, graph_df['Open'], graph_df['High'], graph_df['Low'], graph_df['Close'], width=0.5,
+                              colorup='r', colordown='b')
+            ax.get_xaxis().set_visible(False)
+
+            # 트윈차트(2) - 게시글 수 차트
+            ax1 = ax.twinx()
+            ax1.set_ylabel('게시글 수', color='black')
+            ax1.plot(graph_df['Date'], graph_df['Num'], 'go', linestyle='--', label='게시글수')
+            ax1.legend(loc='upper right')
+
+            # 거래량 차트
+            ax2 = plt.subplot(gs[1])
+            ax2.bar(graph_df['Date'], graph_df['Volume'], color='k', label='거래량')
+            ax2.legend(loc='upper right')
+
+            # 차트 그리기
+            plt.xlabel('날짜', color='black')
+            plt.xticks(rotation=45)  # x-축 글씨 45도 회전
             plt.show()
 
-            break
+    def scatterGraph(self, outlier_df):
+        df = self.num_df
 
-    def barGraph(self):
+        # 평균 거래량, 평균 종가
+        result_df = pd.DataFrame(columns=['Code','A','B'])
+        for i in outlier_df['Code']:
+            graph_df = df[df['Code'] == i]
+            vol_mean = graph_df.Volume.mean()
+            stock_mean = graph_df.Close.mean()
+            result_df.loc[len(result_df)] = [i, vol_mean, stock_mean]
+
+        # Add a column: the color depends on x and y values, but you can use any function you want
+        # value = (df['x'] > 0.2) & (df['y'] > 0.4)
+        # df['color'] = np.where(value == True, "#9b59b6", "#3498db")
+
+        # plot
+        sns.regplot(data=result_df, x="A", y="B", fit_reg=False)#, scatter_kws={'facecolors': df['color']})
+
+        plt.show()
+
+    def heatmapGraph(self, corr_df):
+        df = self.num_df
+
+        # 8월 한달 데이터가져오기(상관관계 : 코스피지수, 코스닥지수, 환율, 등등)
+        st_date = '2023-08-01'
+        ed_date = '2023-08-31'
+        ks_df = pd.read_csv('datacollect/stockdata/indexKS11.csv')
+        kq_df = pd.read_csv('datacollect/stockdata/indexKQ11.csv')
+        ec_df = pd.read_csv('datacollect/stockdata/exchange.csv')
+        ks_df = ks_df[(ks_df['Date'] <= ed_date) & (ks_df['Date'] >= st_date)]
+        ks_df = ks_df.reset_index(drop=True)
+        ks_df = ks_df.rename(columns={'Close' : 'Close_ks'})
+        kq_df = kq_df[(kq_df['Date'] <= ed_date) & (kq_df['Date'] >= st_date)]
+        kq_df = kq_df.reset_index(drop=True)
+        kq_df = kq_df.rename(columns={'Close': 'Close_kq'})
+        ec_df = ec_df[(ec_df['Date'] <= ed_date) & (ec_df['Date'] >= st_date)]
+        ec_df = ec_df.reset_index(drop=True)
+        ec_df = ec_df.rename(columns={'Close': 'Close_ec'})
+
+        for i in corr_df['Code']:
+            graph_df = df[df['Code'] == i]
+            graph_df = pd.merge(graph_df, ks_df[['Date', 'Close_ks']], on='Date')
+            graph_df = pd.merge(graph_df, kq_df[['Date', 'Close_kq']], on='Date')
+            graph_df = pd.merge(graph_df, ec_df[['Date', 'Close_ec']], on='Date')
+            graph_df = graph_df.drop('Unnamed: 0', axis=1)
+            graph_df.set_index(keys=['Date'])
+
+            # 히트맵 그래프
+            heatmap_data = graph_df[['Num', 'Close', 'Volume', 'Close_ks', 'Close_kq', 'Close_ec']]
+            colormap = plt.cm.PuBu
+            plt.figure(figsize=(10, 8))
+            plt.rc('font', family='NanumGothic')
+            plt.title("상관관계 분석(8월 한달 간)", y=1.05, size=15)
+            sns.heatmap(heatmap_data.astype(float).corr(), linewidths=0.1, vmax=1.0,
+                        square=True, cmap=colormap, linecolor="white", annot=True, annot_kws={"size": 16})
+            plt.show()
+
+    def outlierGraph(self):
         '''
         1) 범주화 그래프 = x축 : 게시글 수 범위, y축 : 종목 수
         2) boxplot = 변수 : 월별 게시글 수의 합 (outlier 보기)
@@ -105,31 +212,60 @@ class dataAnalysisCls:
         plt.xlabel('게시글 분류')
         plt.ylabel('종목 수')
         plt.title('범주화 그래프')
-        #plt.show()
+        plt.show()
 
         # 1. 왜도, 첨도
+        sns.distplot(ne.values)
+        print(ne.describe())
+        plt.show()
 
         # boxplot 그리기
         sns.set(style="darkgrid")
         ax = sns.boxplot(y=ne.values)
         sns.swarmplot(y=ne.values, color="grey")
-        #plt.show()
-
-        # 2. outlier 리스트 뽑기
-        q1 = ne.quantile(0.25)
-        q3 = ne.quantile(0.75)
-        iqr = q3 - q1
-        outliers = ne[ne > q3+1.5*iqr]
-        outliers = outliers.reset_index()  # 0~ 인덱스 중복을 초기화
-        outliers = outliers.astype({'Code' : 'str'})
-        outliers.Code = outliers['Code'].apply(lambda x: x.zfill(6)) #outliers.Code = outliers['Code'].apply(lambda x: str(0) + x if len(x) <= 5 else x)
+        plt.show()
 
         # 3. 테마 열 추가하기
-        theme_df = self.theme_df.merge(outliers, how='inner', on='Code')
+        theme_df = self.theme_df.merge(self.outlierAnalysis(), how='inner', on='Code')
         theme_df = theme_df.iloc[:,1:5]
 
         # 4. pie chart 그리기
+        theme = pd.DataFrame(columns=['Theme', 'Count'])
+        for theme_str in theme_df['Theme']:
+            # ', [, ] 특수문자 제거
+            theme_str = theme_str.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
+            # ','를 기준으로 split해서 리스트로 만들
+            theme_list = theme_str.split(',')
 
+            # 1. theme에 해당 테마가 있는지 확인
+            for i in theme_list:
+                # if theme['Theme'].str.contains('i', case=False, regex=False):
+                if theme['Theme'].isin([i]).any():
+                    # 2. 있으면 해당 테마의 카운트 컬럼에 += 1을 해주기
+                    theme.loc[theme['Theme'].isin([i]), 'Count'] += 1
+                else:
+                    # 3. 없으면 테마 컬럼에 해당 테마를 추가해주고, 카운트 컬럼에는 1을 넣기
+                    theme = theme._append({'Theme': i, 'Count': 1}, ignore_index=True)
+
+        theme_sorted = theme.sort_values(by='Count', ascending=False) # 'Count' values 정렬
+        top_5 = theme_sorted.head(5) # Top5 출력
+        dict_theme = top_5.to_dict(orient='list') # DataFrame 을 딕셔너리로 변환
+        plt.rc('font', family='NanumGothic') # 그래프 한글 깨짐 방지
+
+        # pie 차트 속성
+        ratio = dict_theme['Count']
+        labels = dict_theme['Theme']
+
+        plt.pie(ratio,
+                labels=labels,
+                autopct='%.1f%%',
+                startangle=0,
+                counterclock=True,
+                explode=[0.05, 0.05, 0.05, 0.05, 0.05],
+                colors=sns.color_palette('viridis', len(labels)),
+                wedgeprops={'width': 0.7, 'edgecolor': 'w', 'linewidth': 2},
+                shadow=True)
+        plt.show()
 
     def leadAnalysis(self): # 주도주 찾기
         pass

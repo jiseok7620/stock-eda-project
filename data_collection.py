@@ -1,6 +1,7 @@
 import requests as req
 import pandas as pd
 import re
+import gc
 import datetime
 import time
 import FinanceDataReader as fdr
@@ -25,6 +26,14 @@ class dataCollectionCls:
             df = pd.DataFrame(columns=range(4))  # 빈 데이터프레임 생성
             df.columns = ['Code', 'Date', 'Title', 'Contents']  # 데이터 프레임 컬럼 지정
             for code in tqdm(codes):
+                # 만약 데이터프레임의 길이가 2만 줄 이상이면 csv로 저장하고 df 초기화하기
+                if len(df) > 20000:
+                    # csv 파일로 저장
+                    df.to_csv("./datacollect/naver/output_pd" + str(title_code) + ".csv")
+
+                    # df 초기화
+                    df.drop(df.index, inplace=True)
+
                 title_code = code
                 # headless 설정
                 options = webdriver.ChromeOptions()
@@ -128,6 +137,7 @@ class dataCollectionCls:
 
                 # driver 해제
                 driver.quit()
+                gc.collect()
 
                 # 크롤링 정책 상 3초 sleep (종목 넘어갈 때)
                 time.sleep(3)

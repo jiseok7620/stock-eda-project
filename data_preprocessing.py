@@ -39,7 +39,7 @@ class dataPreprocessingCls:
                     # 한달간 댓글 수, 주가
                     stock = stock.drop_duplicates(subset='Date') # Date열 기준 중복제거하기
                     stock = stock.set_index('Date', drop=True, append=False) # 컬럼을 인덱스로 지정
-                    new_df = days_df.join(stock[['Code', 'Close', 'Volume']], how='inner') # 인덱스를 기준으로 합치기
+                    new_df = days_df.join(stock[['Code', 'Open', 'High', 'Low', 'Close', 'Volume']], how='inner') # 인덱스를 기준으로 합치기
                     new_df = new_df.reset_index() # Date 인덱스를 컬럼으로 변경
                     result_df = result_df._append(new_df)
                     result_df = result_df.reset_index(drop=True) # 0~ 인덱스 중복을 초기화
