@@ -1,13 +1,11 @@
 import requests as req
 import pandas as pd
-import re
 import gc
 import datetime
 import time
 import FinanceDataReader as fdr
 import traceback
 from selenium_stealth import stealth
-from io import BytesIO
 from bs4 import BeautifulSoup
 from marcap import marcap_data
 from tqdm import tqdm

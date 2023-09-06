@@ -31,13 +31,16 @@ def exe_main(data_collect, data_preprocessing):
     # 3. 데이터 분석
     outliers = anl_data.outlierAnalysis()  # 토론방 게시글 수의 outlier 리턴
     corr_df = anl_data.commentsAnalysis(outliers)
-    #anl_data.discussAnalysis(anl_data.morpheme_df) # 감성분석 1) 긍정, 부정, 중립 점수 매기기 : 형태소
-    #anl_data.discussAnalysis2(anl_data.test_df)  # 감성분석2 1) 긍정, 부정, 중립 점수 매기기 : 문장
-    #anl_data.outlierGraph() # 토론방 게시글 수의 outlier 그래프 (boxplot 등)
-    #anl_data.commentsGraph(corr_df) # 토론방 게시글 수와 주가의 관계 분석
-    anl_data.scatterGraph(outliers) # outlier 들을 x축 : 평균 거래량, y축 : 평균 등락률 scatter 그래프
-    #anl_data.heatmapGraph(corr_df) # 양의 상관관계인 종목들 heatmap 그리기
-
+    anl_data.discussAnalysis(anl_data.morpheme_df) # 감성분석 1) 긍정, 부정, 중립 점수 매기기 : 형태소
+    anl_data.discussAnalysis2(anl_data.test_df)  # 감성분석2 1) 긍정, 부정, 중립 점수 매기기 : 문장
+    
+    # 4. 그래프 그리기
+    #anl_data.outlierGraph() # 토론방 게시글 수의 - outlier 그래프 (범주화차트, boxplot, piechart 등)
+    #anl_data.commentsGraph(corr_df) # 토론방 게시글 수와 주가의 관계 분석 - 봉차트, lineplot, barplot
+    #anl_data.scatterGraph(outliers) # outlier 들을 x축 : 평균 거래량, y축 : 평균 등락률 - scatter 그래프
+    #anl_data.heatmapGraph(corr_df) # 양의 상관관계인 종목들 - heatmap 그리기
+    #anl_data.wordCloudGraph() # wordcloud
+    
 if __name__ == '__main__':
     try:
         '''
