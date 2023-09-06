@@ -5,6 +5,7 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import json
 import seaborn as sns
+from collections import Counter
 from wordcloud import WordCloud
 
 class dataAnalysisCls:
@@ -93,7 +94,9 @@ class dataAnalysisCls:
         df = self.num_df
 
         # 상관계수가 높은 상위 5개 종목을 그래프로 표현하기
+        title_num = 0
         for i in corr_df.loc[0:4, 'Code']:
+            title_num += 1
             graph_df = df[df['Code'] == i]
             graph_df = graph_df.reset_index(drop=True)  # 인덱스 리셋하기
 
@@ -123,31 +126,37 @@ class dataAnalysisCls:
             # 차트 그리기
             plt.xlabel('날짜', color='black')
             plt.xticks(rotation=45)  # x-축 글씨 45도 회전
-            plt.show()
+            #plt.show()
+
+            # 이미지로 저장
+            plt.savefig('image/topcorr'+str(title_num)+'.png')
+            plt.close()  # 창 닫기 및 메모리 해제
 
     def scatterGraph(self, outlier_df):
         df = self.num_df
+        df['Vol_Price'] = df['Close'] * df['Volume']
 
         # 평균 거래량, 평균 종가
-        result_df = pd.DataFrame(columns=['Code','A','B'])
-        for i in outlier_df['Code']:
+        result_df = pd.DataFrame(columns=['Code','A','B','C'])
+        for i in df['Code']:
             graph_df = df[df['Code'] == i]
             rate = [round(((a - b) / b) * 100, 2) for a, b in zip(graph_df.Close[1:len(graph_df) - 1], graph_df.Close[0:len(graph_df)])]
-            print(graph_df)
-            print(rate)
+            vol_mean = graph_df.Volume.mean() # 한달 평균 거래량
+            vp_mean = graph_df.Vol_Price.mean() # 한달 평균 거래대금
+            rate_mean = abs(sum(rate) / len(rate)) # 한달 평균 등락률
+            Num_mean = graph_df.Num.mean()  # 한달 평균 게시글 수
+            result_df.loc[len(result_df)] = [i, vp_mean, rate_mean, Num_mean]
 
-            vol_mean = graph_df.Volume.mean()
-            stock_mean = graph_df.Close.mean()
-            result_df.loc[len(result_df)] = [i, vol_mean, stock_mean]
-            return
-        # Add a column: the color depends on x and y values, but you can use any function you want
-        # value = (df['x'] > 0.2) & (df['y'] > 0.4)
-        # df['color'] = np.where(value == True, "#9b59b6", "#3498db")
+        # 색깔 나타내기
+        value = (result_df['C'] > df.Num.mean())
+        df['color'] = np.where(value == True, "red", "#3498db")
 
         # plot
-        sns.regplot(data=result_df, x="A", y="B", fit_reg=False)#, scatter_kws={'facecolors': df['color']})
+        sns.regplot(data=result_df, x="A", y="B", fit_reg=False, scatter_kws={'facecolors': df['color']})
 
-        plt.show()
+        # plt.show() # 이미지 보기
+        plt.savefig('image/scatter.png') # 이미지로 저장
+        plt.close()  # 창 닫기 및 메모리 해제
 
     def heatmapGraph(self, corr_df):
         df = self.num_df
@@ -168,7 +177,9 @@ class dataAnalysisCls:
         ec_df = ec_df.reset_index(drop=True)
         ec_df = ec_df.rename(columns={'Close': 'Close_ec'})
 
-        for i in corr_df['Code']:
+        title_num = 0
+        for i in corr_df[0:4]['Code']:
+            title_num += 1
             graph_df = df[df['Code'] == i]
             graph_df = pd.merge(graph_df, ks_df[['Date', 'Close_ks']], on='Date')
             graph_df = pd.merge(graph_df, kq_df[['Date', 'Close_kq']], on='Date')
@@ -181,10 +192,13 @@ class dataAnalysisCls:
             colormap = plt.cm.PuBu
             plt.figure(figsize=(10, 8))
             plt.rc('font', family='NanumGothic')
-            plt.title("상관관계 분석(8월 한달 간)", y=1.05, size=15)
+            plt.title("상관관계 분석", y=1.05, size=15)
             sns.heatmap(heatmap_data.astype(float).corr(), linewidths=0.1, vmax=1.0,
                         square=True, cmap=colormap, linecolor="white", annot=True, annot_kws={"size": 16})
-            plt.show()
+
+            #plt.show() # 이미지 보여주기
+            plt.savefig('image/heatmap'+str(title_num)+'.png') # 이미지로 저장
+            plt.close() # 창 닫기 및 메모리 해제
 
     def outlierGraph(self):
         '''
@@ -206,28 +220,31 @@ class dataAnalysisCls:
         new_sr = new_sr.value_counts()
         new_sr = new_sr.sort_index()
 
-        # 그래프 한글 깨짐 방지
-        plt.rc('font', family='NanumGothic')
-
         # barplot 생성 (Matplotlib의 bar)
+        plt.rc('font', family='NanumGothic') # 그래프 한글 깨짐 방지
         plt.plot(new_sr.index, new_sr.values, 'ro', linestyle='-')
 
         # 축 및 제목 설정
         plt.xlabel('게시글 분류')
         plt.ylabel('종목 수')
         plt.title('범주화 그래프')
-        plt.show()
+        #plt.show() # 이미지 보여주기
+        plt.savefig('image/category.png') # 이미지로 저장
+        plt.close()  # 창 닫기 및 메모리 해제
 
         # 1. 왜도, 첨도
         sns.distplot(ne.values)
-        print(ne.describe())
-        plt.show()
+        # plt.show() # 이미지 보여주기
+        plt.savefig('image/skewness.png')  # 이미지로 저장
+        plt.close()  # 창 닫기 및 메모리 해제
 
         # boxplot 그리기
         sns.set(style="darkgrid")
         ax = sns.boxplot(y=ne.values)
         sns.swarmplot(y=ne.values, color="grey")
-        plt.show()
+        #plt.show() # 이미지 보여주기
+        plt.savefig('image/boxplot.png') # 이미지로 저장
+        plt.close()  # 창 닫기 및 메모리 해제
 
         # 3. 테마 열 추가하기
         theme_df = self.theme_df.merge(self.outlierAnalysis(), how='inner', on='Code')
@@ -269,7 +286,39 @@ class dataAnalysisCls:
                 colors=sns.color_palette('viridis', len(labels)),
                 wedgeprops={'width': 0.7, 'edgecolor': 'w', 'linewidth': 2},
                 shadow=True)
-        plt.show()
+
+        #plt.show() # 이미지 보여주기
+        plt.savefig('image/piechart.png') # 이미지로 저장
+        plt.close() # 창 닫기 및 메모리 해제
+
+    def wordCloudGraph(self): # 워드클라우드 그래프 만들기 (빈도기반분석)
+        df = self.morpheme_df
+
+        noucs = []
+        for word in df['Noun']:
+            # ', [, ] 특수문자 제거
+            word_list = word.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
+            # ','를 기준으로 split해서 리스트로 만들
+            word_list = word_list.split(',')
+
+            for i in word_list:
+                noucs.append(i)
+
+        # 가장 많이 나온 단어부터 n개를 지정
+        counts = Counter(noucs)
+        tags = counts.most_common(40)
+
+        # wordcloud 생성
+        wc = WordCloud(font_path='data/malgunbd.ttf', background_color="black", max_font_size=60)
+        cloud = wc.generate_from_frequencies(dict(tags))
+
+        # wordcloud 띄우기
+        plt.figure(figsize=(16, 8))
+        plt.axis('off')
+        plt.imshow(cloud)
+        #plt.show() # 이미지 보여주기
+        plt.savefig('image/wordcloud.png') # 이미지로 저장
+        plt.close()  # 창 닫기 및 메모리 해제
 
     def leadAnalysis(self): # 주도주 찾기
         pass
