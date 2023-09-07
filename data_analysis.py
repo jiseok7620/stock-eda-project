@@ -7,31 +7,20 @@ import json
 import seaborn as sns
 from collections import Counter
 from wordcloud import WordCloud
+import statistics
+from scipy.stats import skew
 
 class dataAnalysisCls:
-    def __init__(self):
-        self.num_df = pd.read_csv('datapreprocess/discussionnum.csv')
-        self.morpheme_df = pd.read_csv('datapreprocess/morpheme.csv')
-        self.theme_df = pd.read_csv('datapreprocess/stocktheme.csv')
-        self.test_df = pd.read_csv('datacollect/daum/output.csv')
-
     def data_list(self, wordname): # SentiWord_info의 json 사전의 긍정/부정/중립 값의 Score 가져오기
         with open('data/SentiWord_info.json', encoding='utf-8-sig', mode='r') as f:
             data = json.load(f)
-
         result = 9999
         result2 = 'None'
         for i in range(0, len(data)):
-            #if wordname in data[i]['word']: # 형태소 1
-                #result = data[i]['polarity']
-                #result2 = data[i]['word']
-            #if wordname == data[i]['word'][0:len(wordname)]: # 형태소 2
-                #result = data[i]['polarity']
-                #result2 = data[i]['word']
-            if data[i]['word'] in wordname:
+            if wordname in data[i]['word']:
+                # 형태소 1
                 result = data[i]['polarity']
                 result2 = data[i]['word']
-
         return result, result2
 
     def discussAnalysis(self, df): # 감성분석 1) 긍정, 부정, 중립 점수 매기기 (df : morpheme.csv) : 1) 형태소
@@ -56,7 +45,7 @@ class dataAnalysisCls:
             print(noun_list)
 
     def outlierAnalysis(self): # 게시글 수의 아웃라이어 분석
-        df = self.num_df
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
 
         # 종목 코드 별로 그룹화하여 게시글 수의 합 구하기
         gr = df.groupby('Code').sum()
@@ -75,7 +64,7 @@ class dataAnalysisCls:
         return outliers
 
     def commentsAnalysis(self, outlier_df): # 토론방 게시글 수와 주가의 관계 분석 (num_df : discussionnum)
-        df = self.num_df
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
         df['Code'] = df['Code'].astype(str)  # Code 열을 str로 타입 변환
         df.Code = df['Code'].apply(lambda x: x.zfill(6))  # Code 열의 앞을 0으로 채우기
 
@@ -91,12 +80,14 @@ class dataAnalysisCls:
         return corr_df
 
     def commentsGraph(self, corr_df):
-        df = self.num_df
-
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
+        df = df.astype({'Code' : 'str'})
+        df['Code'] = df['Code'].apply(lambda x:x.zfill(6))
+        corr_df = pd.concat([corr_df.head(2), corr_df.tail(2)])
+        num = 0
         # 상관계수가 높은 상위 5개 종목을 그래프로 표현하기
-        title_num = 0
-        for i in corr_df.loc[0:4, 'Code']:
-            title_num += 1
+        for i in corr_df['Code'] :
+            num += 1
             graph_df = df[df['Code'] == i]
             graph_df = graph_df.reset_index(drop=True)  # 인덱스 리셋하기
 
@@ -129,37 +120,43 @@ class dataAnalysisCls:
             #plt.show()
 
             # 이미지로 저장
-            plt.savefig('image/topcorr'+str(title_num)+'.png')
-            plt.close()  # 창 닫기 및 메모리 해제
+            if num <= 2:
+                plt.savefig('image/topcorr' + str(i) + '.png')
+                plt.close()  # 창 닫기 및 메모리 해제
+            else :
+                plt.savefig('image/bottomcorr' + str(i) + '.png')
+                plt.close()  # 창 닫기 및 메모리 해제
 
     def scatterGraph(self, outlier_df):
-        df = self.num_df
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
         df['Vol_Price'] = df['Close'] * df['Volume']
 
         # 평균 거래량, 평균 종가
-        result_df = pd.DataFrame(columns=['Code','A','B','C'])
+        result_df = pd.DataFrame(columns=['Code','Trading Value','Changes Ratio','Comments'])
         for i in df['Code']:
             graph_df = df[df['Code'] == i]
             rate = [round(((a - b) / b) * 100, 2) for a, b in zip(graph_df.Close[1:len(graph_df) - 1], graph_df.Close[0:len(graph_df)])]
-            vol_mean = graph_df.Volume.mean() # 한달 평균 거래량
+            #vol_mean = graph_df.Volume.mean() # 한달 평균 거래량
             vp_mean = graph_df.Vol_Price.mean() # 한달 평균 거래대금
-            rate_mean = abs(sum(rate) / len(rate)) # 한달 평균 등락률
+            rate_mean = sum(rate) / len(rate) # 한달 평균 등락률
             Num_mean = graph_df.Num.mean()  # 한달 평균 게시글 수
             result_df.loc[len(result_df)] = [i, vp_mean, rate_mean, Num_mean]
 
         # 색깔 나타내기
-        value = (result_df['C'] > df.Num.mean())
+        value = (result_df['Comments'] > df.Num.mean())
         df['color'] = np.where(value == True, "red", "#3498db")
 
         # plot
-        sns.regplot(data=result_df, x="A", y="B", fit_reg=False, scatter_kws={'facecolors': df['color']})
+        sns.regplot(data=result_df, x="Trading Value", y="Changes Ratio", fit_reg=False, scatter_kws={'facecolors': df['color']})
 
         # plt.show() # 이미지 보기
         plt.savefig('image/scatter.png') # 이미지로 저장
         plt.close()  # 창 닫기 및 메모리 해제
 
     def heatmapGraph(self, corr_df):
-        df = self.num_df
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
+        df = df.astype({'Code': 'str'})
+        df['Code'] = df['Code'].apply(lambda x: x.zfill(6))
 
         # 8월 한달 데이터가져오기(상관관계 : 코스피지수, 코스닥지수, 환율, 등등)
         st_date = '2023-08-01'
@@ -177,9 +174,11 @@ class dataAnalysisCls:
         ec_df = ec_df.reset_index(drop=True)
         ec_df = ec_df.rename(columns={'Close': 'Close_ec'})
 
-        title_num = 0
-        for i in corr_df[0:4]['Code']:
-            title_num += 1
+        corr_df = pd.concat([corr_df.head(3), corr_df.tail(3)])
+        num = 0
+        # 상관계수가 높은 상위, 하위 2개 종목을 그래프로 표현하기
+        for i in corr_df['Code']:
+            num += 1
             graph_df = df[df['Code'] == i]
             graph_df = pd.merge(graph_df, ks_df[['Date', 'Close_ks']], on='Date')
             graph_df = pd.merge(graph_df, kq_df[['Date', 'Close_kq']], on='Date')
@@ -197,23 +196,28 @@ class dataAnalysisCls:
                         square=True, cmap=colormap, linecolor="white", annot=True, annot_kws={"size": 16})
 
             #plt.show() # 이미지 보여주기
-            plt.savefig('image/heatmap'+str(title_num)+'.png') # 이미지로 저장
-            plt.close() # 창 닫기 및 메모리 해제
+            # 이미지로 저장
+            if num <= 3:
+                plt.savefig('image/topheatmap' + str(i) + '.png')
+                plt.close()  # 창 닫기 및 메모리 해제
+            else:
+                plt.savefig('image/bottomheatmap' + str(i) + '.png')
+                plt.close()  # 창 닫기 및 메모리 해제
 
     def outlierGraph(self):
-        '''
-        1) 범주화 그래프 = x축 : 게시글 수 범위, y축 : 종목 수
-        2) boxplot = 변수 : 월별 게시글 수의 합 (outlier 보기)
-        '''
-        df = self.num_df
+        df = pd.read_csv('datapreprocess/discussionnum.csv')
 
         # 종목 코드 별로 그룹화하여 게시글 수의 합 구하기
         gr = df.groupby('Code').sum()
         ne = gr['Num']
+        # print(ne.idxmax()) # max : 047310(파워로직스)
 
         # 범주화하기
-        list = [0, ne.max()/4, ne.max()/3, ne.max()/2, ne.max()]
-        labels = [str(int(ne.max()/4)), str(int(ne.max()/3)), str(int(ne.max()/2)), str(int(ne.max()))]
+        list = [0, ne.max()/512, ne.max()/256, ne.max()/128, ne.max()/64, ne.max()/32, ne.max()/16, ne.max()/8, ne.max()/4, ne.max()/2, ne.max()]
+        labels = [str(round(int(ne.max()/512),-1)), str(round(int(ne.max()/256),-1)), str(round(int(ne.max()/128),-2)),
+                  str(round(int(ne.max()/64),-2)), str(round(int(ne.max()/32),-2)), str(round(int(ne.max()/16),-2)),
+                  str(round(int(ne.max()/8),-2)), str(round(int(ne.max()/4),-2)), str(round(int(ne.max()/2),-3)),
+                  str(round(int(ne.max()),-3))]
         new_sr = pd.cut(ne, list, labels=labels)
 
         # 범주별로 종목의 개수 count하기
@@ -223,36 +227,67 @@ class dataAnalysisCls:
         # barplot 생성 (Matplotlib의 bar)
         plt.rc('font', family='NanumGothic') # 그래프 한글 깨짐 방지
         plt.plot(new_sr.index, new_sr.values, 'ro', linestyle='-')
+        plt.bar(new_sr.index, new_sr.values, color='skyblue', edgecolor='gray')
+
+        # 숫자 표시하기
+        for i in range(10):
+            plt.text(i, new_sr[i], str(new_sr[i]), ha='center', va='bottom')
 
         # 축 및 제목 설정
-        plt.xlabel('게시글 분류')
+        plt.xlabel('게시글 수')
         plt.ylabel('종목 수')
         plt.title('범주화 그래프')
         #plt.show() # 이미지 보여주기
         plt.savefig('image/category.png') # 이미지로 저장
         plt.close()  # 창 닫기 및 메모리 해제
 
-        # 1. 왜도, 첨도
-        sns.distplot(ne.values)
+        #1. 왜도, 첨도
+        # print(ne)
+        # print(ne.info())
+        # print('중앙값 :', statistics.median(ne))
+        # print('최빈값 :', statistics.mode(ne))
+        # print('평균값 :', round(sum(ne) / len(ne),2))
+        # print('평균값 :', skew(ne))
+        sns.distplot(ne.values,
+                     color='skyblue',
+                     kde_kws={'color': 'red', 'linewidth': 1})
+        # 그래프 제목 설정
+        plt.title('Distribution Plot')
+        # 축 레이블 설정
+        plt.xlabel('Number of posts')
+        plt.ylabel('Density')
         # plt.show() # 이미지 보여주기
         plt.savefig('image/skewness.png')  # 이미지로 저장
         plt.close()  # 창 닫기 및 메모리 해제
 
         # boxplot 그리기
-        sns.set(style="darkgrid")
-        ax = sns.boxplot(y=ne.values)
-        sns.swarmplot(y=ne.values, color="grey")
+        sns.set(style="white")
+        ax = sns.boxplot(y=ne.values,
+                        color = 'skyblue',
+                        linewidth = 1)
+        sns.swarmplot(y=ne.values,
+                      color="red",
+                      size=1)
+        # y축 범위 설정
+        plt.ylim(0, 6000)
+        # y축 레이블 설정
+        plt.ylabel('Number of posts')
         #plt.show() # 이미지 보여주기
         plt.savefig('image/boxplot.png') # 이미지로 저장
-        plt.close()  # 창 닫기 및 메모리 해제
+        plt.close() # 창 닫기 및 메모리 해제
 
         # 3. 테마 열 추가하기
-        theme_df = self.theme_df.merge(self.outlierAnalysis(), how='inner', on='Code')
-        theme_df = theme_df.iloc[:,1:5]
+        theme_df = pd.read_csv('datapreprocess/stocktheme.csv')
+        theme_df = theme_df.merge(self.outlierAnalysis(), how='inner', on='Code')
+        theme_df = theme_df.iloc[:, 1:5]
 
         # 4. pie chart 그리기
         theme = pd.DataFrame(columns=['Theme', 'Count'])
-        for theme_str in theme_df['Theme']:
+        theme_dup_df = pd.DataFrame(columns=['Name', 'Num', 'Theme'])
+        for name, num, theme_str in zip(theme_df['Name'], theme_df['Num'], theme_df['Theme']):
+
+            if str(theme_str) == 'nan':
+                continue
             # ', [, ] 특수문자 제거
             theme_str = theme_str.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
             # ','를 기준으로 split해서 리스트로 만들
@@ -260,7 +295,8 @@ class dataAnalysisCls:
 
             # 1. theme에 해당 테마가 있는지 확인
             for i in theme_list:
-                # if theme['Theme'].str.contains('i', case=False, regex=False):
+                # theme_dup_df에 종목과 테마 넣기
+                theme_dup_df = theme_dup_df._append({'Name': name, 'Num' : num, 'Theme': i}, ignore_index=True)
                 if theme['Theme'].isin([i]).any():
                     # 2. 있으면 해당 테마의 카운트 컬럼에 += 1을 해주기
                     theme.loc[theme['Theme'].isin([i]), 'Count'] += 1
@@ -270,55 +306,181 @@ class dataAnalysisCls:
 
         theme_sorted = theme.sort_values(by='Count', ascending=False) # 'Count' values 정렬
         top_5 = theme_sorted.head(5) # Top5 출력
-        dict_theme = top_5.to_dict(orient='list') # DataFrame 을 딕셔너리로 변환
-        plt.rc('font', family='NanumGothic') # 그래프 한글 깨짐 방지
+        pie_df = pd.merge(top_5, theme_dup_df, on='Theme')
+        pie_df['Rank'] = pie_df['Num'].rank(method='min', ascending=False)
 
-        # pie 차트 속성
-        ratio = dict_theme['Count']
-        labels = dict_theme['Theme']
+        def assign_value(rank): # 조건에 따라 값을 할당하는 함수 정의
+            if rank <= 10:
+                return 50
+            elif rank <= 20:
+                return 45
+            elif rank <= 30:
+                return 41
+            elif rank <= 40:
+                return 38
+            elif rank <= 50:
+                return 36
+            elif rank <= 60:
+                return 35
+            else:
+                return None
+        pie_df['Newnum'] = pie_df['Rank'].apply(assign_value)
 
-        plt.pie(ratio,
-                labels=labels,
-                autopct='%.1f%%',
-                startangle=0,
-                counterclock=True,
-                explode=[0.05, 0.05, 0.05, 0.05, 0.05],
-                colors=sns.color_palette('viridis', len(labels)),
-                wedgeprops={'width': 0.7, 'edgecolor': 'w', 'linewidth': 2},
-                shadow=True)
+        def get_label_rotation(angle, offset): # 레이블의 회전과 정렬 도우미 함수
+            rotation = np.rad2deg(angle + offset)
+            if angle <= np.pi:
+                alignment = "right"
+                rotation = rotation + 180
+            else:
+                alignment = "left"
+            return rotation, alignment
 
-        #plt.show() # 이미지 보여주기
+        def add_labels(angles, values, labels, offset, ax): # 플롯에 레이블을 추가하는 함수
+            padding = 4
+            # Iterate over angles, values, and labels, to add all of them.
+            for angle, value, label, in zip(angles, values, labels):
+                angle = angle
+
+                # Obtain text rotation and alignment
+                rotation, alignment = get_label_rotation(angle, offset)
+                # And finally add the text
+                ax.text(
+                    x=angle,
+                    y=value + padding,
+                    s=label,
+                    ha=alignment,
+                    va="center",
+                    rotation=rotation,
+                    rotation_mode="anchor")
+
+        # 그룹화하기
+        GROUP = pie_df['Theme'].values
+
+        # 표시할 값
+        VALUES = pie_df["Newnum"].values
+        LABELS = pie_df["Name"].values
+
+        # 회전
+        PAD = 3
+        ANGLES_N = len(VALUES) + PAD * len(np.unique(GROUP))
+        ANGLES = np.linspace(0, 2 * np.pi, num=ANGLES_N, endpoint=False)
+        WIDTH = (2 * np.pi) / len(ANGLES)
+        
+        # 그룹 사이즈(그룹별 몇개 표시할 것인지)
+        GROUPS_SIZE = [len(i[1]) for i in pie_df.groupby("Theme")]
+        GROUPS_SIZE = sorted(GROUPS_SIZE, reverse=True)
+
+        # idx 리스트, offset
+        offset = 0
+        OFFSET = np.pi / 2
+        IDXS = []
+        for size in GROUPS_SIZE:
+            IDXS += list(range(offset + PAD, offset + size + PAD))
+            offset += size + PAD
+
+        # Initialize Figure and Axis
+        fig, ax = plt.subplots(figsize=(20, 10), subplot_kw={"projection": "polar"})
+        plt.rc('font', family='NanumGothic')  # 그래프 한글 깨짐 방지
+
+        ax.set_theta_offset(OFFSET)
+        ax.set_ylim(-50, 50)
+        ax.set_frame_on(False)
+        ax.xaxis.grid(False)
+        ax.yaxis.grid(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        # 색상 지정
+        COLORS = [f"C{i}" for i, size in enumerate(GROUPS_SIZE) for _ in range(size)]
+
+        # Add bars
+        ax.bar(
+            ANGLES[IDXS], VALUES, width=WIDTH, linewidth=2,
+            color=COLORS, edgecolor="white")
+
+        # Add labels
+        add_labels(ANGLES[IDXS], VALUES, LABELS, OFFSET, ax)
+        gr_df = pie_df.drop_duplicates(subset='Theme')
+        name_list = []
+        for index, row in gr_df.iterrows():
+            name = row[0] + '\n(' + str(row[1]) + ')'
+            name_list.append(name)
+
+        offset = 0
+        for group, size in zip(name_list, GROUPS_SIZE):
+            # Add line below bars
+            x1 = np.linspace(ANGLES[offset + PAD], ANGLES[offset + size + PAD - 1], num=50)
+            ax.plot(x1, [-5] * 50, color="#333333")
+
+            # Add text to indicate group
+            ax.text(
+                np.mean(x1), -20, group, color="#333333", fontsize=12,
+                fontweight="bold", ha="center", va="center")
+
+            # Add reference lines at 20, 40, 60, and 80
+            x2 = np.linspace(ANGLES[offset], ANGLES[offset + PAD - 1], num=50)
+            ax.plot(x2, [20] * 50, color="#bebebe", lw=0.8)
+            ax.plot(x2, [40] * 50, color="#bebebe", lw=0.8)
+            ax.plot(x2, [60] * 50, color="#bebebe", lw=0.8)
+            ax.plot(x2, [80] * 50, color="#bebebe", lw=0.8)
+
+            offset += size + PAD
+
+        #plt.show()
         plt.savefig('image/piechart.png') # 이미지로 저장
         plt.close() # 창 닫기 및 메모리 해제
 
     def wordCloudGraph(self): # 워드클라우드 그래프 만들기 (빈도기반분석)
-        df = self.morpheme_df
+        df = pd.read_csv('datapreprocess/morpheme.csv')
+        df = df.astype({'Code': 'str'})
+        df['Code'] = df['Code'].apply(lambda x: x.zfill(6))
 
-        noucs = []
-        for word in df['Noun']:
-            # ', [, ] 특수문자 제거
-            word_list = word.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
-            # ','를 기준으로 split해서 리스트로 만들
-            word_list = word_list.split(',')
+        codes = ['250000', '053030']
+        for i in codes:
+            test_df = df[df['Code'] == i]
 
-            for i in word_list:
-                noucs.append(i)
+            nouns = []
+            adjectives = []
+            verbs = []
+            for word1, word2, word3 in zip(test_df['Noun'], test_df['Adjective'], test_df['Verb']):
+                # ', [, ] 특수문자 제거
+                word_nouns_list = word1.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
+                word_adjectives_list = word2.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
+                word_verbs_list = word3.replace('\'', '').replace('[', '').replace(']', '').replace(' ', '')
 
-        # 가장 많이 나온 단어부터 n개를 지정
-        counts = Counter(noucs)
-        tags = counts.most_common(40)
+                # ','를 기준으로 split해서 리스트로 만들
+                word_nouns_list = word_nouns_list.split(',')
+                word_adjectives_list =word_adjectives_list.split(',')
+                word_verbs_list = word_verbs_list.split(',')
 
-        # wordcloud 생성
-        wc = WordCloud(font_path='data/malgunbd.ttf', background_color="black", max_font_size=60)
-        cloud = wc.generate_from_frequencies(dict(tags))
+                for aa,bb,cc in zip(word_nouns_list, word_adjectives_list, word_verbs_list):
+                    nouns.append(aa)
+                    adjectives.append(bb)
+                    verbs.append(cc)
 
-        # wordcloud 띄우기
-        plt.figure(figsize=(16, 8))
-        plt.axis('off')
-        plt.imshow(cloud)
-        #plt.show() # 이미지 보여주기
-        plt.savefig('image/wordcloud.png') # 이미지로 저장
-        plt.close()  # 창 닫기 및 메모리 해제
+            # 명사, 형용사, 동사 전처리
+            noucs_filtered_list = [word for word in nouns if len(word) > 1] # 명사는 1글자 이상만 추출
+            adjectives_filtered_list = [word for word in adjectives if len(word) > 1]
+            verbs_filtered_list = [word for word in verbs if len(word) > 1]
+
+            # 합친 리스트
+            all_list = noucs_filtered_list + verbs_filtered_list
+
+            # 가장 많이 나온 단어부터 n개를 지정
+            counts = Counter(all_list)
+            tags = counts.most_common(50)
+
+            # wordcloud 생성
+            wc = WordCloud(font_path='data/malgunbd.ttf', background_color="black", max_font_size=60)
+            cloud = wc.generate_from_frequencies(dict(tags))
+
+            # wordcloud 띄우기
+            plt.figure(figsize=(16, 8))
+            plt.axis('off')
+            plt.imshow(cloud)
+            #plt.show() # 이미지 보여주기
+            plt.savefig('image/wordcloud'+str(i)+'.png') # 이미지로 저장
+            plt.close()  # 창 닫기 및 메모리 해제
 
     def leadAnalysis(self): # 주도주 찾기
         pass

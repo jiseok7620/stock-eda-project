@@ -58,7 +58,6 @@ class dataCollectionCls:
                 # driver.get(f'https://finance.naver.com/item/board.naver?code={code}') # 페이지를 찾을 수 없습니다.
                 driver.get(f'https://finance.naver.com/item/coinfo.naver?code={code}')
                 driver.implicitly_wait(20)
-
                 # 종목토론으로 이동 (페이지 요청 찾을 수 없음 -> 해결)
                 WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".tab7"))).click()
 
@@ -154,11 +153,13 @@ class dataCollectionCls:
             for code in tqdm(codes):
                 title_code = code
                 for page in pages:
-                    url = f'https://finance.daum.net/content/debates/A{code}?symbolCode=A{code}&page={page}&perPage=100&notice=true&pagination=true'
+                    url = f'https://finance.daum.net/content/debates/A{code}?' \
+                                f'=A{code}&page={page}&perPage=100&notice=true&pagination=true'
 
                     headers = {
                         'Referer': 'http://finance.daum.net',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.127'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) ' \
+                                      'Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.127'
                     }
 
                     res = req.get(url, headers=headers)
